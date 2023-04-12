@@ -1,6 +1,6 @@
-#![windows_subsystem = "windows"]
+// #![windows_subsystem = "windows"]
 use std::{process::{exit},
-    time::{Duration},
+    time::{Duration, Instant},
         thread, collections::HashMap,env::{self, var}, net::{TcpListener, TcpStream}, io::{BufRead, Write}};
 // use abserde::Location;
 // use byte_unit::Byte;
@@ -80,28 +80,104 @@ fn handle_con(mut stream:TcpStream,iname:String,sys:&mut System,tt:&mut u128,per
             }
         },
     };
-    let (status_line, filecontent,contentheader) =
-        if request_line == "GET / HTTP/1.1".to_string() {
-             ("HTTP/1.1 200 OK", marks(&iname,sys,tt,perminute),String::from("Content-Type: application/json"))
+    
+    if request_line == "GET /stream HTTP/1.1".to_string() {
+       {
+                
+                // spawn a thread to send SSE events
+                // std::thread::spawn(move || 
+                    {
+                    println!("inthread");
+
+                    
+                stream.write_all(b"HTTP/1.1 200 OK\r\n");
+                // set the content type header to text/event-stream
+                stream.write_all(b"Content-Type: text/event-stream\r\n");
+                // mark the end of headers
+                stream.write_all(b"\r\n");
+                    // handle errors
+                    // let mut closecon=false;
+                    // initialize a counter and a start time
+                    let mut counter = 0;
+                    let start = Instant::now();
+                    
+                    // loop forever
+                    loop 
+                    // while(rx.recv().unwrap())
+                    {   
+                        // println!("{}",closecon);
+                        
+                        // wait for one second between each event
+                        
+                        // increment the counter
+                        counter += 1;
+                        // calculate the elapsed time since start
+                        let elapsed = start.elapsed().as_secs();
+                        // println!("{}",marks(&iname,sys,tt,perminute));
+                        // format the event data as a string
+                        let data = format!(
+                            // "id: {}\nevent: message\ndata: {{\"counter\": {}, \"elapsed\": {}}}\n\n",
+                            "id: {}\nevent: message\ndata: {}\n\n",
+                            counter,forsse(&iname,sys,tt,perminute)
+                        );
+                        println!("{}",data);
+                        // write the data to the stream
+                        match stream.write_all(data.as_bytes()) {
+                            Ok(_) => {
+                                // flush the stream
+                                stream.flush();
+                                std::thread::sleep(Duration::from_secs(1));
+                                
+                                
+                            }
+                            Err(e) => {
+                                // handle write errors (e.g. client disconnected)
+                                println!("Write error: {}", e);
+                                break ;
+                            }
+                        }
+                        // if(closecon){
+                        //     println!("here");   
+                        //     break
+
+                        //         // std::process::exit(0)
+                            
+                        // }
+                        
+                    }
+                }
+            // );
+            
+        }
+        
+  
         }
         else{
-            ("HTTP/1.1 200 OK", sincelastread(),String::from("Content-Type: application/json"))
-        };
-        let response =
-        format!("{status_line}\r\n{contentheader}\r\n\r\n{filecontent}");
-    match stream.write(response.as_bytes()) {
-        Ok(file) => {
-        },
-        Err(error) =>{
-            return ;
-        },
-    };match stream.flush() {
-        Ok(file) => {
-        },
-        Err(error) =>{
-            return ;
-        },
-    };
+            let (status_line, filecontent,contentheader) =
+            if request_line == "GET / HTTP/1.1".to_string() {
+                ("HTTP/1.1 200 OK", marks(&iname,sys,tt,perminute),String::from("Content-Type: application/json"))
+            }
+            else{
+                ("HTTP/1.1 200 OK", sincelastread(),String::from("Content-Type: application/json"))
+            };
+            let response =
+            format!("{status_line}\r\n{contentheader}\r\n\r\n{filecontent}");
+            match stream.write(response.as_bytes()) {
+                Ok(file) => {
+                },
+                Err(error) =>{
+                    return ;
+                },
+            };
+            
+            match stream.flush() {
+                Ok(file) => {
+                },
+                Err(error) =>{
+                    return ;
+                },
+            };
+        }
     }
     //returns total upload and download bytes count of current session and total data usage since the start of the ns_daemon in a day
     pub fn marks(iname:&String,sys:&mut System,tt:&mut u128,perminute:&mut i32)->String{
@@ -131,6 +207,36 @@ fn handle_con(mut stream:TcpStream,iname:String,sys:&mut System,tt:&mut u128,per
                             }
                             *perminute+=1;
                 return serde_json::to_string_pretty(&vec![total_tx,total_rx,*tt as u64]).unwrap();
+        }
+        pub fn forsse(iname:&String,sys:&mut System,tt:&mut u128,perminute:&mut i32)->serde_json::Value{
+                    sys.refresh_networks_list();
+                    
+                    let mut total_rx: u64 = 0;
+                    let mut total_tx: u64 = 0;
+                    let networks = sys.networks();
+                    for (name, network) in networks {
+                            let mut nametostat=iname.as_str();
+                            if(nametostat=="all"){
+                            total_rx += network.total_received();
+                            total_tx += network.total_transmitted();
+                            }
+                            else if(*name == *iname){
+                                total_rx += network.total_received();
+                                total_tx += network.total_transmitted();
+                                break;
+                            }
+                    }
+                    let date = Local::now();
+                            let current_date = date.format("%Y-%m-%d").to_string();
+                            // println!("fromhere------------>3");
+                            if(*perminute>60){
+                                *tt=getpreference(APPNAME,&current_date,0 as u128).parse::<u128>().unwrap();
+                                *perminute=0;
+                            }
+                            *perminute+=1;
+                // return total_tx.to_string();
+                return serde_json::to_value(&vec![total_tx,total_rx,*tt as u64]).unwrap();
+
         }
 //returns todays total while ns_daemon running
 pub fn sincelastread()->String{
