@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         # os: [windows-latest, macos-latest, ubuntu-latest]
-        os: [windows-latest]
+        os: [ubuntu-latest]
     steps:
     - uses: actions/checkout@v2
     # - uses: Swatinem/rust-cache@v2.2.1
@@ -75,7 +75,8 @@ jobs:
           # draft: false
           # prerelease: false
           files: |
-            ./binaries/*
+            ./binaries/*.exe
+            ./binaries/*ns_sse
           body: |
             - ${{ github.event.head_commit.message }} ${{ github.sha }}
         env:
