@@ -33,7 +33,7 @@ jobs:
       if: matrix.os == 'windows-latest'
       uses: actions/upload-artifact@v3
       with:
-        name: ${{ matrix.os }}-ns_sse.exe
+        name: windows_amd64_ns_sse.exe
         path: target/release/ns_sse.exe
         retention-days: 1
 
@@ -41,7 +41,7 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       uses: actions/upload-artifact@v3
       with:
-        name: ${{ matrix.os }}-ns_sse
+        name: linux_amd64_ns_sse
         path: target/release/ns_sse
         retention-days: 1
   release:
@@ -75,8 +75,8 @@ jobs:
           # draft: false
           # prerelease: false
           files: |
-            *.exe
-            *ns_sse
+            windows_amd64_ns_sse.exe
+            linux_amd64_ns_sse
           body: |
             - ${{ github.event.head_commit.message }} ${{ github.sha }}
         env:
