@@ -38,8 +38,8 @@ jobs:
       - name: Publish
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: {{ github.event.head_commit.timestamp }}
-          name: {{ github.event.head_commit.timestamp }}
+          tag_name: ${{ github.event.head_commit.timestamp }}
+          name: ${{ github.event.head_commit.timestamp }}
           # draft: false
           # prerelease: false
           files: |
@@ -82,7 +82,7 @@ jobs:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         file: target/release/*ns_sse*
         asset_name: ${{ matrix.os }}-ns_gui
-        tag: {{ github.event.head_commit.timestamp }}
+        tag: ${{ github.event.head_commit.timestamp }}
         file_glob: true
 
     # - name: Upload binary windows
