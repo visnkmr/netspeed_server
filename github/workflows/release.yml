@@ -1,0 +1,117 @@
+name: Rust CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Toolchain info
+        run: |
+          cargo --version --verbose
+          rustc --version
+
+      - name: Install
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install -y musl-tools cmake libxft-dev libxinerama-dev libxcursor-dev libxfixes-dev libpango1.0-dev libpangoxft-1.0-0 libpangocairo-1.0-0 libssl-dev
+
+      - name: Build
+        run: cargo build --verbose --release
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir bin
+          cp target/release/ns_sse.exe bin/
+          $binary_name = "ns_sse-${{ github.event.release.tag_name }}.windows.x86_64"
+          echo "BINARY_NAME=$binary_name.zip" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          Compress-Archive -Path bin/ns_sse.exe -DestinationPath "$binary_name.zip"
+
+      - name: Package (macOS/Linux)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir bin
+          cp target/release/ns_sse bin/
+          if [ "${{ runner.os }}" == "Linux" ]; then
+            os_name="linux"
+            arch="x86_64"
+          else
+            os_name=$(echo ${{ matrix.os }} | sed 's/macos-//;s/10.15/catalina/;s/11/big_sur/;s/12/monterey/')
+            arch=$(echo "x86_64-apple-darwin" | cut -d- -f1)
+          fi
+          ext="bottle.tar.gz"
+          binary_name=ns_sse-${{ github.event.release.tag_name }}.${os_name}.${arch}.${ext}
+          echo "BINARY_NAME=$binary_name" >> $GITHUB_ENV
+          tar czf $binary_name -C bin ns_sse
+
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.BINARY_NAME }}
+          path: ${{ env.BINARY_NAME }}
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - name: Calculate checksums, generate table, and attach binaries to the release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          table="| Filename | SHA256 Checksum |\n|----------|-----------------|"
+          for file in artifacts/*/*.{tar.gz,zip}; do
+            checksum=$(sha256sum "$file" | awk '{print $1}')
+            table+="\n| $(basename "$file") | $checksum |"
+          done
+
+          current_body=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/${{ github.event.release.id }}" \
+            | jq -r '.body')
+
+          new_body="${current_body}\n${table}"
+          upload_url=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/${{ github.event.release.id }}" \
+            | jq -r '.upload_url')
+          upload_url="${upload_url%\{?name,label\}}"
+
+          for file in artifacts/*/*.{tar.gz,zip}; do
+            curl -s -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary "@$file" \
+              "${upload_url}?name=$(basename "$file")&label=$(basename "$file")"
+          done
+
+          curl -s -X PATCH -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/vnd.github+json" \
+            -d "{\"body\": \"$new_body\"}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/${{ github.event.release.id }}"
