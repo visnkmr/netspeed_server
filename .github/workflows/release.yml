@@ -19,37 +19,44 @@ jobs:
     # - uses: Swatinem/rust-cache@v2.2.1
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
+
     - name: Install
       if: matrix.os == 'ubuntu-latest'
       run: sudo apt-get install -y musl-tools cmake libxft-dev libxinerama-dev libxcursor-dev libxfixes-dev libpango1.0-dev libpangoxft-1.0-0 libpangocairo-1.0-0 libssl-dev
+
     - name: Build
       env:
         RUST_BACKTRACE: 1
       run: cargo build --release
-    - name: Get current date
-      id: date
-      run: echo "::set-output name=date::$(date +'%Y_%m_%dT%H_%M')"
+    
     - name: Upload binary windows
       if: matrix.os == 'windows-latest'
       uses: actions/upload-artifact@v3
       with:
         name: ${{ matrix.os }}-ns_sse.exe
         path: target/release/ns_sse.exe
+        retention-days: 1
+
     - name: Upload binary ubuntu
       if: matrix.os == 'ubuntu-latest'
       uses: actions/upload-artifact@v3
       with:
         name: ${{ matrix.os }}-ns_sse
         path: target/release/ns_sse
+        retention-days: 1
   release:
     name: Create Release
     needs: [build]
     runs-on: ubuntu-latest
     steps:
-      - name: Download binaries
+      - name: Get current date
+        id: date
+        run: echo "::set-output name=date::$(date +'%Y_%m_%dT%H_%M')"
+
+      - name: Download artifacts
         uses: actions/download-artifact@v3
         with:
-          path: target/release/
+          path: ./binaries
       # - name: Create Release
       #   id: create_release
       #   uses: actions/create-release@v1
@@ -65,10 +72,10 @@ jobs:
         with:
           tag_name: ${{ steps.date.outputs.date }}
           name: ${{ steps.date.outputs.date }}
-          draft: false
-          prerelease: false
+          # draft: false
+          # prerelease: false
           files: |
-            target/release/*
+            ./binaries/*
           body: |
             - ${{ github.event.head_commit.message }} ${{ github.sha }}
         env:
@@ -82,15 +89,15 @@ jobs:
       #     asset_path: target/release/perlink*
       #     asset_name: perlink_linux_amd64
       #     asset_content_type: application/octet-stream
-      - name: Upload Windows binary
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: target/release/ns_sse.exe
-          asset_name: ns_sse_windows_amd64.exe
-          asset_content_type: application/octet-stream
+      # - name: Upload Windows binary
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: target/release/ns_sse.exe
+      #     asset_name: ns_sse_windows_amd64.exe
+      #     asset_content_type: application/octet-stream
 
 
 #           name: Rust CI
