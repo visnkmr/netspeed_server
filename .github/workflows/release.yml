@@ -56,7 +56,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v3
         with:
-          path: ./binaries
+          path: ./
       # - name: Create Release
       #   id: create_release
       #   uses: actions/create-release@v1
@@ -75,8 +75,8 @@ jobs:
           # draft: false
           # prerelease: false
           files: |
-            ./binaries/*.exe
-            ./binaries/*ns_sse
+            *.exe
+            *ns_sse
           body: |
             - ${{ github.event.head_commit.message }} ${{ github.sha }}
         env:
