@@ -81,8 +81,8 @@ jobs:
           # draft: false
           # prerelease: false
           files: |
-            "windows_amd64_ns_sse.exe"
-            "linux_amd64_ns_sse"
+            ${{ github.workspace }}/windows_amd64_ns_sse.exe
+            ${{ github.workspace }}/linux_amd64_ns_sse
           body: |
             - ${{ github.event.head_commit.message }} ${{ github.sha }}
         env:
