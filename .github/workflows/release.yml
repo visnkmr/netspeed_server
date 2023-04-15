@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ main ]
 env:
-  DATE: ${{ formatDate(github.event.head_commit.timestamp,'%Y_%m_%dT%H_%M') }}
+  DATE: ${{ github.event.head_commit.timestamp }}
 
 jobs:
   release:
