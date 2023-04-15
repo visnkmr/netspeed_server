@@ -53,6 +53,12 @@ jobs:
         id: date
         run: echo "::set-output name=date::$(date +'%Y_%m_%dT%H_%M')"
 
+      - name: echo folder content
+        run: ls
+
+      - name: echo folder content1
+        run: ls >> $GITHUB_ENV
+
       - name: Download artifacts
         uses: actions/download-artifact@v3
         with:
@@ -75,8 +81,8 @@ jobs:
           # draft: false
           # prerelease: false
           files: |
-            windows_amd64_ns_sse.exe
-            linux_amd64_ns_sse
+            "windows_amd64_ns_sse.exe"
+            "linux_amd64_ns_sse"
           body: |
             - ${{ github.event.head_commit.message }} ${{ github.sha }}
         env:
