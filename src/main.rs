@@ -92,6 +92,10 @@ fn handle_con(mut stream:TcpStream,iname:String,sys:&mut System,tt:&mut u128,per
                     
                 stream.write_all(b"HTTP/1.1 200 OK\r\n");
                 // set the content type header to text/event-stream
+                stream.write_all(b"Access-Control-Allow-Origin: *\r\n");
+                stream.write_all(b"Access-Control-Allow-Credentials: true\r\n");
+                stream.write_all(b"Access-Control-Allow-Methods: *\r\n");
+                stream.write_all(b"Access-Control-Allow-Headers: *\r\n");
                 stream.write_all(b"Content-Type: text/event-stream\r\n");
                 // mark the end of headers
                 stream.write_all(b"\r\n");

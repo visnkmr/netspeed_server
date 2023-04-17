@@ -78,8 +78,8 @@ jobs:
         with:
           tag_name: ${{ steps.date.outputs.date }}
           name: ${{ steps.date.outputs.date }}
-          # draft: false
-          # prerelease: false
+          draft: false
+          prerelease: false
           files: |
             **/*
           body: |
