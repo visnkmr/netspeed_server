@@ -1,0 +1,21 @@
+concurrency: 50
+base: 'http://localhost:6798'
+iterations: 50
+rampup: 0
+plan:
+  - name: Subscribe to SSE stream
+    request:
+      url: /stream
+      headers:
+        Accept: text/event-stream
+    assign: stream
+  - name: Parse SSE events
+    exec:
+      command: "echo ' {{ stream.body }}' | jq .data | tr -d '\"'"
+      assign: data
+    assert:
+      key: status
+      value: 200 # check if response is OK
+
+
+# drill --benchmark ./benchmarksse.yml --stats --timeout 100

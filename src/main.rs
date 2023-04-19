@@ -270,6 +270,56 @@ fn handle_con(mut stream:TcpStream){
                 // return serde_json::to_value(&vec![total_tx,total_rx,*tt as u64]).unwrap();
 
         }
+        use std::io::{Read};
+        // #[test]
+        
+        // fn testsseserver() {
+        //     loop{
+        //         thread::spawn(move||{
+        //     // Create a TCP connection to the SSE server
+        //     let mut stream = TcpStream::connect("localhost:6798/stream").unwrap();
+        
+        //     // Send an HTTP GET request with headers
+        //     write!(
+        //         stream,
+        //         "GET / HTTP/1.1\r\n\
+        //         Host: localhost:6798\r\n\
+        //         Accept: text/event-stream\r\n\
+        //         \r\n"
+        //     )
+        //     .unwrap();
+        
+        //     // Read the response from the server
+        //     let mut response = String::new();
+        //     stream.read_to_string(&mut response).unwrap();
+        
+        //     // Iterate over the lines of the response
+        //     for line in response.lines() {
+        //         // Parse each line and extract event type and data
+        //         if let Some((event_type, data)) = line.split_once(": ") {
+        //             // Handle different event types
+        //             match event_type {
+        //                 "id" => println!("Received id: {}", data),
+        //                 "event" => println!("Received event: {}", data),
+        //                 "data" => println!("Received data: {}", data),
+        //                 "retry" => {
+        //                     // Parse retry value as a duration
+        //                     if let Ok(retry) = data.parse::<u64>() {
+        //                         let duration = Duration::from_millis(retry);
+        //                         println!("Received retry: {:?}", duration);
+        //                         // Set read timeout for reconnecting
+        //                         stream.set_read_timeout(Some(duration)).unwrap();
+        //                     }
+        //                 }
+        //                 _ => println!("Received unknown event type: {}", event_type),
+        //             }
+        //         }
+        //     }
+        //     });
+        //     }
+            
+            
+        // }
 //returns todays total while ns_daemon running
 pub fn sincelastread()->String{
     let date = Local::now();
