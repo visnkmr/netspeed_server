@@ -1,7 +1,7 @@
 // #![windows_subsystem = "windows"]
 use std::{process::{exit},
     time::{Duration, Instant},
-        thread, collections::HashMap,env::{self, var}, net::{TcpListener, TcpStream}, io::{BufRead, Write}};
+        thread, collections::HashMap,env::{self, var}, net::{TcpListener, TcpStream}, io::{BufRead, Write}, sync::atomic::{AtomicUsize, AtomicU64, Ordering}};
 // use abserde::Location;
 // use byte_unit::Byte;
 use chrono::Local;
@@ -55,12 +55,23 @@ fn main() {
     let mut sys = System::new();
     let mut tt:u128=getpreference(APPNAME,&current_date,0 as u128).parse::<u128>().unwrap();
     let mut perminute=0;
+    let k=iname.clone();
+    let mut pm=perminute.clone();
+    thread::spawn(
+        move||
+        {
+        totalbytes.swap(getpreference(APPNAME,&current_date,0 as u64).parse::<u64>().unwrap(), Ordering::SeqCst);
+        forsse(&k,&mut sys,&mut pm);
+        
+    });
     //customize port and address here.
     match TcpListener::bind("127.0.0.1:6798") {
         Ok(listener) =>{
             for stream in listener.incoming(){
-                let stream = stream.unwrap();
-                    handle_con(stream,iname.clone(),&mut sys,&mut tt,&mut perminute);
+                    thread::spawn(move ||{
+                    let stream = stream.unwrap();
+                        handle_con(stream);
+                });
             }
         },
         Err(e) =>{
@@ -69,7 +80,11 @@ fn main() {
     }
     
 }
-fn handle_con(mut stream:TcpStream,iname:String,sys:&mut System,tt:&mut u128,perminute:&mut i32){
+static upbytes: AtomicU64 = AtomicU64::new(0);
+static downbytes: AtomicU64 = AtomicU64::new(0);
+static totalbytes: AtomicU64 = AtomicU64::new(0);
+
+fn handle_con(mut stream:TcpStream){
     let buf_reader = std::io::BufReader::new(&mut stream);
     let request_line = match buf_reader.lines().next() {
         None => "".to_string(),
@@ -85,7 +100,7 @@ fn handle_con(mut stream:TcpStream,iname:String,sys:&mut System,tt:&mut u128,per
        {
                 
                 // spawn a thread to send SSE events
-                // std::thread::spawn(move || 
+                std::thread::spawn(move || 
                     {
                     println!("inthread");
 
@@ -122,7 +137,12 @@ fn handle_con(mut stream:TcpStream,iname:String,sys:&mut System,tt:&mut u128,per
                         let data = format!(
                             // "id: {}\nevent: message\ndata: {{\"counter\": {}, \"elapsed\": {}}}\n\n",
                             "id: {}\nevent: message\ndata: {}\n\n",
-                            counter,forsse(&iname,sys,tt,perminute)
+                            // counter,forsse(&iname,sys,tt,perminute)
+                            counter,serde_json::to_value(&vec![
+                                upbytes.load(Ordering::SeqCst),
+                                downbytes.load(Ordering::SeqCst),
+                                totalbytes.load(Ordering::SeqCst)]).unwrap()
+
                         );
                         println!("{}",data);
                         // write the data to the stream
@@ -150,7 +170,7 @@ fn handle_con(mut stream:TcpStream,iname:String,sys:&mut System,tt:&mut u128,per
                         
                     }
                 }
-            // );
+            );
             
         }
         
@@ -158,10 +178,11 @@ fn handle_con(mut stream:TcpStream,iname:String,sys:&mut System,tt:&mut u128,per
         }
         else{
             let (status_line, filecontent,contentheader) =
-            if request_line == "GET / HTTP/1.1".to_string() {
-                ("HTTP/1.1 200 OK", marks(&iname,sys,tt,perminute),String::from("Content-Type: application/json"))
-            }
-            else{
+            // if request_line == "GET / HTTP/1.1".to_string() {
+            //     ("HTTP/1.1 200 OK", marks(&iname,sys,tt,perminute),String::from("Content-Type: application/json"))
+            // }
+            // else
+            {
                 ("HTTP/1.1 200 OK", sincelastread(),String::from("Content-Type: application/json"))
             };
             let response =
@@ -212,7 +233,8 @@ fn handle_con(mut stream:TcpStream,iname:String,sys:&mut System,tt:&mut u128,per
                             *perminute+=1;
                 return serde_json::to_string_pretty(&vec![total_tx,total_rx,*tt as u64]).unwrap();
         }
-        pub fn forsse(iname:&String,sys:&mut System,tt:&mut u128,perminute:&mut i32)->serde_json::Value{
+        pub fn forsse(iname:&String,sys:&mut System,perminute:&mut i32){
+            loop{
                     sys.refresh_networks_list();
                     
                     let mut total_rx: u64 = 0;
@@ -221,6 +243,7 @@ fn handle_con(mut stream:TcpStream,iname:String,sys:&mut System,tt:&mut u128,per
                     for (name, network) in networks {
                             let mut nametostat=iname.as_str();
                             if(nametostat=="all"){
+                                
                             total_rx += network.total_received();
                             total_tx += network.total_transmitted();
                             }
@@ -234,12 +257,17 @@ fn handle_con(mut stream:TcpStream,iname:String,sys:&mut System,tt:&mut u128,per
                             let current_date = date.format("%Y-%m-%d").to_string();
                             // println!("fromhere------------>3");
                             if(*perminute>60){
-                                *tt=getpreference(APPNAME,&current_date,0 as u128).parse::<u128>().unwrap();
+                                totalbytes.swap(getpreference(APPNAME,&current_date,0 as u64).parse::<u64>().unwrap(), Ordering::SeqCst);
+                                // *tt=getpreference(APPNAME,&current_date,0 as u128).parse::<u128>().unwrap();
                                 *perminute=0;
                             }
                             *perminute+=1;
+                            downbytes.swap(total_rx, Ordering::SeqCst);
+                            upbytes.swap(total_tx, Ordering::SeqCst);
+                            thread::sleep(Duration::from_secs(1));
+                        }
                 // return total_tx.to_string();
-                return serde_json::to_value(&vec![total_tx,total_rx,*tt as u64]).unwrap();
+                // return serde_json::to_value(&vec![total_tx,total_rx,*tt as u64]).unwrap();
 
         }
 //returns todays total while ns_daemon running
